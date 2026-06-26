@@ -1,0 +1,259 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .input {
+    @apply rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-zinc-100 outline-none transition placeholder:text-zinc-600 focus:border-cyan-400/60 focus:bg-white/[0.07] focus:ring-2 focus:ring-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+
+  .chip {
+    @apply rounded-md border border-white/10 bg-white/[0.035] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-zinc-400 transition hover:border-cyan-400/35 hover:bg-cyan-400/10 hover:text-cyan-100;
+  }
+
+  .chip-active {
+    @apply border-cyan-300/45 bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20;
+  }
+
+  .ide-shell {
+    @apply h-screen overflow-hidden bg-[#07080a] text-zinc-100;
+    background:
+      radial-gradient(circle at 48% 18%, rgba(8, 145, 178, 0.12), transparent 30%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 22%),
+      #07080a;
+  }
+
+  .ide-topbar {
+    @apply flex h-16 items-center gap-3 border-b border-white/10 bg-black/35 px-4 backdrop-blur-xl;
+  }
+
+  .ide-brand-mark {
+    @apply flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-cyan-300/30 bg-cyan-300/10 font-mono text-sm font-semibold text-cyan-100 shadow-lg shadow-cyan-950/25;
+  }
+
+  .ide-layout {
+    @apply grid h-[calc(100vh-64px)];
+  }
+
+  .ide-panel {
+    @apply h-full overflow-auto border-white/10 bg-[#0d0f13]/90 text-zinc-100 backdrop-blur-xl;
+  }
+
+  .ide-panel-header {
+    @apply sticky top-0 z-10 border-b border-white/10 bg-[#0c0e12]/95 px-5 py-4 backdrop-blur-xl;
+  }
+
+  .ide-graph-frame {
+    @apply relative min-h-0 overflow-hidden border-x border-white/10 bg-[#07090c];
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.032) 1px, transparent 1px),
+      radial-gradient(circle at 50% 42%, rgba(8, 145, 178, 0.12), transparent 34%),
+      #07090c;
+    background-size: 28px 28px, 28px 28px, auto, auto;
+  }
+
+  .ide-resize-handle {
+    @apply relative cursor-col-resize bg-black/35;
+  }
+
+  .ide-resize-line {
+    @apply absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/10 transition group-hover:bg-cyan-300/70;
+  }
+
+  .ide-resize-grip {
+    @apply absolute left-1/2 top-1/2 h-16 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-300/60 opacity-0 transition group-hover:opacity-100;
+  }
+
+  .ide-button {
+    @apply rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-medium text-zinc-200 transition hover:border-cyan-400/35 hover:bg-cyan-400/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .ide-button-primary {
+    @apply border-cyan-300/35 bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20 hover:border-cyan-200/60 hover:bg-cyan-300/15;
+  }
+
+  .ide-button-danger {
+    @apply border-red-500/25 bg-red-500/10 text-red-100 hover:border-red-400/55 hover:bg-red-500/15;
+  }
+
+  .ide-pill {
+    @apply inline-flex items-center rounded-md border border-white/10 bg-white/[0.045] px-2 py-1 text-xs text-zinc-400;
+  }
+
+  .ide-status-ok {
+    @apply border-emerald-300/25 bg-emerald-300/10 text-emerald-100;
+  }
+
+  .ide-status-error {
+    @apply border-red-400/25 bg-red-500/10 text-red-100;
+  }
+
+  .ide-section {
+    @apply rounded-lg border border-white/10 bg-white/[0.035] p-4 shadow-xl shadow-black/15 transition hover:border-white/15 hover:bg-white/[0.05];
+  }
+
+  .ide-card {
+    @apply rounded-lg border border-white/10 bg-[#111318]/90 p-4 shadow-xl shadow-black/20;
+  }
+
+  .ide-subcard {
+    @apply rounded-md border border-white/10 bg-black/20 p-3;
+  }
+
+  .ide-empty {
+    @apply rounded-md border border-dashed border-white/10 bg-white/[0.025] px-3 py-2 text-sm text-zinc-500;
+  }
+
+  .ide-enter {
+    animation: ide-enter 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .db-shell {
+    @apply h-screen overflow-hidden bg-[#07080a] text-zinc-100;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 26%),
+      linear-gradient(135deg, rgba(8, 145, 178, 0.12), transparent 34%),
+      linear-gradient(315deg, rgba(245, 158, 11, 0.08), transparent 38%),
+      #07080a;
+  }
+
+  .db-topbar {
+    @apply flex h-16 items-center border-b border-white/10 bg-black/35 px-5 backdrop-blur-xl;
+  }
+
+  .db-brand-mark {
+    @apply flex h-9 w-9 items-center justify-center rounded-md border border-cyan-400/25 bg-cyan-400/10 font-mono text-sm font-semibold text-cyan-200 shadow-lg shadow-cyan-950/30;
+  }
+
+  .db-source-switch {
+    @apply flex h-10 overflow-hidden rounded-md border border-white/10 bg-white/[0.035] p-1;
+  }
+
+  .db-source-button {
+    @apply min-w-24 rounded px-3 text-xs font-semibold uppercase text-zinc-500 transition hover:bg-white/[0.055] hover:text-zinc-200;
+  }
+
+  .db-source-button-active {
+    @apply bg-cyan-300/10 text-cyan-100 shadow-lg shadow-cyan-950/20;
+  }
+
+  .db-nav-link {
+    @apply flex h-11 min-w-56 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-5 text-base font-semibold text-zinc-300 transition hover:border-cyan-400/40 hover:bg-cyan-400/10 hover:text-white;
+  }
+
+  .db-nav-active {
+    @apply flex h-11 min-w-64 items-center justify-center rounded-lg border border-amber-300/30 bg-amber-300/10 px-5 text-base font-semibold text-amber-100 shadow-lg shadow-amber-950/20;
+  }
+
+  .db-layout {
+    @apply grid h-[calc(100vh-64px)] grid-cols-[360px_minmax(0,1fr)];
+  }
+
+  .db-sidebar {
+    @apply overflow-auto border-r border-white/10 bg-black/25 p-4 backdrop-blur-xl;
+  }
+
+  .db-workspace {
+    @apply overflow-auto p-5;
+  }
+
+  .db-workspace-stack {
+    @apply mx-auto grid max-w-[1720px] gap-4;
+  }
+
+  .db-section {
+    @apply rounded-lg border border-white/10 bg-[#111318]/90 p-4 shadow-2xl shadow-black/20 backdrop-blur-xl;
+  }
+
+  .db-list-item {
+    @apply grid gap-1 rounded-md border border-white/10 bg-white/[0.035] px-3 py-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-cyan-400/35 hover:bg-white/[0.065] hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/25;
+  }
+
+  .db-list-item-active {
+    @apply border-cyan-300/50 bg-cyan-300/10 shadow-lg shadow-cyan-950/20;
+  }
+
+  .message-bubble {
+    @apply self-start rounded-lg border px-4 py-3 shadow-xl shadow-black/20;
+  }
+
+  .message-user {
+    @apply border-white/10 bg-white/[0.055] text-zinc-100;
+  }
+
+  .message-assistant {
+    @apply border-cyan-300/20 bg-cyan-950/20 text-zinc-100;
+  }
+
+  .db-command {
+    @apply rounded-lg border border-white/10 bg-[#101216]/95 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl;
+  }
+
+  .db-metric {
+    @apply rounded-md border border-white/10 bg-white/[0.035] p-3 transition hover:border-white/20 hover:bg-white/[0.055];
+  }
+
+  .db-pill {
+    @apply inline-flex items-center rounded-md border border-white/10 bg-white/[0.045] px-2 py-1 text-xs text-zinc-400;
+  }
+
+  .db-turn {
+    @apply overflow-hidden rounded-lg border border-white/10 bg-[#0f1115]/95 shadow-2xl shadow-black/20 transition duration-200;
+  }
+
+  .db-turn:hover {
+    @apply border-white/20 bg-[#12151a];
+  }
+
+  .db-debug-panel {
+    @apply self-start rounded-lg border border-white/10 bg-black/20 p-3 text-xs;
+  }
+
+  .db-raw-panel {
+    @apply rounded-md border border-white/10 bg-black/25 transition open:border-cyan-400/25;
+  }
+
+  .db-table-wrap {
+    @apply overflow-hidden rounded-md border border-white/10 bg-black/20;
+  }
+
+  .db-row {
+    @apply bg-white/[0.025] transition hover:bg-white/[0.045];
+  }
+}
+
+@keyframes ide-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .db-enter {
+    animation: db-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .db-enter-delay {
+    animation: db-enter 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: 80ms;
+  }
+}
+
+@keyframes db-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
