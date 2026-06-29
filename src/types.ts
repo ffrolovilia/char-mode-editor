@@ -7,23 +7,16 @@ export type DialogueNode = {
   required_nodes: string[];
   required_nodes_mode: string;
   required_evidence_mode: string;
-  must_concede: string;
-  can_still_deny: string;
-  defense_direction: string;
-  tone: string;
-  forbidden: string[];
   required_evidence: string[];
   opened_evidence: string[];
-  game_update_xml: string;
   game_updates: Record<string, string>[];
+  delivery_style: string;
   reveal_chunk_ids: string[];
   reveals: NodeRevealChunk[];
   progress_hint: string;
   progress_hint_importance: "low" | "med" | "max";
   progress_hints: NodeProgressHint[];
-  xml_fields: XmlField[];
-  attrs: Record<string, string>;
-  xml_paths: Record<string, string>;
+  paths: Record<string, string>;
 };
 
 export type KnowledgeChunk = {
@@ -32,7 +25,7 @@ export type KnowledgeChunk = {
   active_until: string;
   text: string;
   attrs: Record<string, string>;
-  xml_paths: Record<string, string>;
+  paths: Record<string, string>;
 };
 
 export type NodeRevealChunk = {
@@ -42,13 +35,13 @@ export type NodeRevealChunk = {
   text: string;
   exists: boolean;
   attrs: Record<string, string>;
-  xml_paths: Record<string, string>;
+  paths: Record<string, string>;
 };
 
 export type NodeProgressHint = {
   text: string;
   starts_after_turns: number;
-  xml_paths: Record<string, string>;
+  paths: Record<string, string>;
 };
 
 export type DialogueEdge = {
@@ -66,7 +59,7 @@ export type EvidenceNode = {
   targets: string[];
   meaning: string;
   attrs: Record<string, string>;
-  xml_paths: Record<string, string>;
+  paths: Record<string, string>;
 };
 
 export type EvidenceCatalogItem = {
@@ -84,21 +77,21 @@ export type ValidationIssue = {
   ref?: string | null;
 };
 
-export type XmlSection = {
+export type FieldSection = {
   id: string;
   title: string;
   path: string;
-  groups: XmlGroup[];
+  groups: FieldGroup[];
 };
 
-export type XmlGroup = {
+export type FieldGroup = {
   id: string;
   title: string;
   subtitle: string;
-  fields: XmlField[];
+  fields: FieldEntry[];
 };
 
-export type XmlField = {
+export type FieldEntry = {
   path: string;
   label: string;
   value: string;
@@ -111,7 +104,7 @@ export type CharacterGraph = {
   character_name: string;
   source_path: string;
   token_estimate: number;
-  sections: XmlSection[];
+  sections: FieldSection[];
   knowledge_chunks: KnowledgeChunk[];
   public_chunk_ids: string[];
   nodes: DialogueNode[];

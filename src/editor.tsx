@@ -6,13 +6,13 @@ import type {
   DialogueNode,
   EvidenceCatalogItem,
   EvidenceNode,
+  FieldEntry,
+  FieldGroup,
+  FieldSection,
   KnowledgeChunk,
   NodeProgressHint,
   NodeRevealChunk,
   ValidationIssue,
-  XmlField,
-  XmlGroup,
-  XmlSection,
 } from "./types";
 import { useGraphStore } from "./store";
 
@@ -350,7 +350,7 @@ const ISSUE_GUIDES: Record<string, IssueGuide> = {
 
 const DEFAULT_GUIDE: IssueGuide = {
   title: "Validation issue",
-  summary: "The graph validator found a rule violation in this XML.",
+  summary: "The graph validator found a rule violation in this character.",
   check:
     "Open the raw validator message and inspect the referenced node, evidence, or chunk.",
 };
@@ -555,13 +555,6 @@ function quotedValue(msg: string, label: string): string {
 
 // ─── CharacterContextPanel ────────────────────────────────────────────────────
 
-const PROTECTED_SECTIONS = new Set([
-  "profiles",
-  "chat_voice",
-  "evidence_index",
-  "global_forbidden",
-]);
-
 export function CharacterContextPanel() {
   const graph = useGraphStore((s) => s.graph);
   const search = useGraphStore((s) => s.search);
@@ -590,7 +583,7 @@ export function CharacterContextPanel() {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-cyan-200">
-              Character XML
+              Character JSON
             </p>
             <h1
               className={
@@ -610,7 +603,7 @@ export function CharacterContextPanel() {
             }
             title={
               isValid
-                ? "Character XML validation passed"
+                ? "Character validation passed"
                 : `${issueCount} validation issue(s)`
             }
           >
@@ -702,7 +695,7 @@ function EvidenceIndexSection({
   evidence: EvidenceNode[];
   onToggle: () => void;
   search: string;
-  section: XmlSection;
+  section: FieldSection;
 }) {
   const addEvidenceIndexItem = useGraphStore((s) => s.addEvidenceIndexItem);
   const deleteEvidenceIndexItem = useGraphStore((s) => s.deleteEvidenceIndexItem);
@@ -895,9 +888,8 @@ function SectionBlock({
   collapsed: boolean;
   onToggle: () => void;
   search: string;
-  section: XmlSection;
+  section: FieldSection;
 }) {
-  const deleteXmlField = useGraphStore((s) => s.deleteXmlField);
   const visibleGroups = useMemo(() => {
     if (!search.trim()) return section.groups;
     const q = search.trim().toLowerCase();
@@ -915,25 +907,12 @@ function SectionBlock({
 
   if (!visibleGroups.length) return null;
 
-  const canDelete =
-    !PROTECTED_SECTIONS.has(section.id) &&
-    section.id !== "character" &&
-    Boolean(section.path);
-
-  const removeSection = async () => {
-    if (!canDelete) return;
-    if (!window.confirm(`Delete section "${section.title}" and all nested XML data?`))
-      return;
-    await deleteXmlField(section.path);
-  };
-
   return (
     <section>
       <CollapsibleSectionHeader
         collapsed={collapsed}
         count={visibleGroups.length}
         title={section.title}
-        onDelete={canDelete ? removeSection : undefined}
         onToggle={onToggle}
       />
       {!collapsed && (
@@ -950,13 +929,11 @@ function SectionBlock({
 function CollapsibleSectionHeader({
   collapsed,
   count,
-  onDelete,
   onToggle,
   title,
 }: {
   collapsed: boolean;
   count: number;
-  onDelete?: () => void;
   onToggle: () => void;
   title: string;
 }) {
@@ -974,38 +951,18 @@ function CollapsibleSectionHeader({
           {title}
         </h2>
       </button>
-      <div className="flex items-center gap-1.5">
-        {onDelete && (
-          <button
-            className="ide-button ide-button-danger rounded-md px-2 py-0.5 text-xs"
-            onClick={onDelete}
-            type="button"
-          >
-            Delete
-          </button>
-        )}
-        <button
-          className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-0.5 text-xs text-zinc-500 transition hover:border-cyan-400/40 hover:text-cyan-100"
-          onClick={onToggle}
-          type="button"
-        >
-          {count}
-        </button>
-      </div>
+      <button
+        className="rounded-md border border-white/10 bg-white/[0.035] px-2 py-0.5 text-xs text-zinc-500 transition hover:border-cyan-400/40 hover:text-cyan-100"
+        onClick={onToggle}
+        type="button"
+      >
+        {count}
+      </button>
     </div>
   );
 }
 
-function GroupCard({ group }: { group: XmlGroup }) {
-  const deleteXmlField = useGraphStore((s) => s.deleteXmlField);
-  const canDelete = group.id !== "/character_model";
-
-  const removeGroup = async () => {
-    if (!canDelete) return;
-    if (!window.confirm(`Delete block "${group.title}" and all nested XML data?`)) return;
-    await deleteXmlField(group.id);
-  };
-
+function GroupCard({ group }: { group: FieldGroup }) {
   return (
     <article className="ide-card">
       <div className="mb-3 flex items-start justify-between gap-4">
@@ -1015,52 +972,26 @@ function GroupCard({ group }: { group: XmlGroup }) {
             <p className="mt-1 text-xs leading-5 text-zinc-500">{group.subtitle}</p>
           )}
         </div>
-        <div className="flex items-center gap-1.5">
-          {canDelete && (
-            <button
-              className="ide-button ide-button-danger px-2 py-1 text-xs"
-              onClick={removeGroup}
-              type="button"
-            >
-              Delete
-            </button>
-          )}
-          <span className="ide-pill">{group.fields.length}</span>
-        </div>
+        <span className="ide-pill">{group.fields.length}</span>
       </div>
       <div className="grid gap-3">
         {group.fields.map((field) => (
-          <EditableXmlField field={field} key={field.path} />
+          <EditableField field={field} key={field.path} />
         ))}
       </div>
     </article>
   );
 }
 
-function EditableXmlField({ field }: { field: XmlField }) {
-  const saveXmlField = useGraphStore((s) => s.saveXmlField);
-  const deleteXmlField = useGraphStore((s) => s.deleteXmlField);
-  const { dirty, draft, save, setDraft, setStatus, status } = useSaveableDraft({
-    onSave: (v) => saveXmlField(field.path, v),
+function EditableField({ field }: { field: FieldEntry }) {
+  const saveField = useGraphStore((s) => s.saveField);
+  const { dirty, draft, save, setDraft, status } = useSaveableDraft({
+    onSave: (v) => saveField(field.path, v),
     resetKey: `${field.path}:${field.value}`,
     value: field.value,
   });
-  const [deleting, setDeleting] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   useAutosizeTextarea(textareaRef, draft, true);
-
-  const remove = async () => {
-    if (status === "saving" || deleting) return;
-    if (!window.confirm(`Delete "${field.label}" from XML?`)) return;
-    setDeleting(true);
-    try {
-      await deleteXmlField(field.path);
-    } catch {
-      setStatus("error");
-    } finally {
-      setDeleting(false);
-    }
-  };
 
   return (
     <label className="grid gap-1.5">
@@ -1068,30 +999,20 @@ function EditableXmlField({ field }: { field: XmlField }) {
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
           {field.label}
         </span>
-        <div className="flex items-center gap-1.5">
-          <button
-            className="ide-button ide-button-primary px-2.5 py-1 text-xs disabled:bg-white/[0.04]"
-            disabled={!dirty || status === "saving" || deleting}
-            onClick={save}
-            type="button"
-          >
-            {status === "saving"
-              ? "Saving"
-              : status === "saved"
-                ? "Saved"
-                : status === "error"
-                  ? "Retry"
-                  : "Save"}
-          </button>
-          <button
-            className="ide-button ide-button-danger px-2.5 py-1 text-xs disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-zinc-600"
-            disabled={status === "saving" || deleting}
-            onClick={remove}
-            type="button"
-          >
-            {deleting ? "Deleting" : "Delete"}
-          </button>
-        </div>
+        <button
+          className="ide-button ide-button-primary px-2.5 py-1 text-xs disabled:bg-white/[0.04]"
+          disabled={!dirty || status === "saving"}
+          onClick={save}
+          type="button"
+        >
+          {status === "saving"
+            ? "Saving"
+            : status === "saved"
+              ? "Saved"
+              : status === "error"
+                ? "Retry"
+                : "Save"}
+        </button>
       </div>
       <textarea
         ref={textareaRef}
@@ -1146,7 +1067,6 @@ export function InspectorPanel() {
     addKnowledgeChunk,
     updateKnowledgeChunk,
     deleteKnowledgeChunk,
-    deleteXmlField,
   } = useGraphStore();
   const fileName = useGraphStore((s) => s.fileName) ?? "";
 
@@ -1179,7 +1099,6 @@ export function InspectorPanel() {
   const [newChunkActiveUntil, setNewChunkActiveUntil] = useState("");
   const [newChunkText, setNewChunkText] = useState("");
   const [createChunkOpen, setCreateChunkOpen] = useState(false);
-  const [rawGameUpdateOpen, setRawGameUpdateOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -1191,7 +1110,6 @@ export function InspectorPanel() {
     setNewChunkActiveUntil("");
     setNewChunkText("");
     setCreateChunkOpen(false);
-    setRawGameUpdateOpen(false);
     setDirty(false);
     setSaveError("");
   }, [selectedNode]);
@@ -1255,12 +1173,7 @@ export function InspectorPanel() {
         open_text: draft.open_text,
         required_nodes_mode: draft.required_nodes_mode,
         required_evidence_mode: draft.required_evidence_mode,
-        must_concede: draft.must_concede,
-        can_still_deny: draft.can_still_deny,
-        defense_direction: draft.defense_direction,
-        tone: draft.tone,
-        forbidden: draft.forbidden,
-        game_update_xml: draft.game_update_xml,
+        delivery_style: draft.delivery_style,
         progress_hint_importance: draft.progress_hint_importance,
         progress_hints: draft.progress_hints,
       });
@@ -1270,15 +1183,6 @@ export function InspectorPanel() {
     } finally {
       setSaving(false);
     }
-  };
-
-  const removeXmlPath = async (path: string | undefined, fallback?: () => void) => {
-    if (!path) {
-      fallback?.();
-      return;
-    }
-    if (!window.confirm("Delete this XML element or attribute?")) return;
-    await deleteXmlField(path);
   };
 
   const removeSelectedNode = async () => {
@@ -1308,25 +1212,6 @@ export function InspectorPanel() {
       attrs: {},
     };
 
-  const xmlFields = draft.xml_fields ?? [];
-  const deliveryFields = xmlFields.filter((f) => f.path.includes("/delivery_style"));
-  const editableFields = xmlFields.filter((f) => !isDedicatedField(f.path));
-  const showLegacyState = Boolean(
-    draft.must_concede ||
-      draft.can_still_deny ||
-      draft.forbidden.length ||
-      draft.xml_paths.state_change ||
-      draft.xml_paths.must_concede ||
-      draft.xml_paths.can_still_deny ||
-      draft.xml_paths.cannot_say,
-  );
-  const showLegacyResponse = Boolean(
-    draft.defense_direction ||
-      draft.tone ||
-      draft.xml_paths.response_guidance ||
-      draft.xml_paths.defense_direction ||
-      draft.xml_paths.tone,
-  );
   const factReveals = draft.reveals.filter((r) => r.exists && r.type === "fact");
   const stageReveals = draft.reveals.filter((r) => r.exists && r.type === "stage");
   const otherReveals = draft.reveals.filter(
@@ -1343,7 +1228,7 @@ export function InspectorPanel() {
     <RevealChunkCard
       activeUntilOptions={graph.nodes.map((n) => n.id)}
       chunk={reveal}
-      key={`${draft.id}-${reveal.id}-${reveal.xml_paths.reveal ?? reveal.id}`}
+      key={`${draft.id}-${reveal.id}-${reveal.paths.reveal ?? reveal.id}`}
       onDeleteChunk={() => deleteKnowledgeChunk(reveal.id)}
       onDeleteReveal={() => deleteNodeReveal(draft.id, reveal.id)}
       onPatchChunk={(patch) => updateKnowledgeChunk(reveal.id, patch)}
@@ -1365,7 +1250,7 @@ export function InspectorPanel() {
   const addHint = () => {
     update("progress_hints", [
       ...draft.progress_hints,
-      { starts_after_turns: DEFAULT_HINT_START_TURNS, text: "", xml_paths: {} },
+      { starts_after_turns: DEFAULT_HINT_START_TURNS, text: "", paths: {} },
     ]);
   };
 
@@ -1416,7 +1301,7 @@ export function InspectorPanel() {
 
       <div className="grid gap-4 p-5">
         <InspectorSection
-          path={draft.xml_paths.open}
+          path={draft.paths.open}
           subtitle="Strict requirements plus soft open_logic for this node."
           title="Open"
         >
@@ -1467,17 +1352,13 @@ export function InspectorPanel() {
           <EditableText
             multiline
             label="open_logic"
-            path={draft.xml_paths.open_logic}
             value={draft.open_text}
             onChange={(v) => update("open_text", v)}
-            onDelete={() =>
-              removeXmlPath(draft.xml_paths.open_logic, () => update("open_text", ""))
-            }
           />
         </InspectorSection>
 
         <InspectorSection
-          path={draft.xml_paths.reveals}
+          path={draft.paths.reveals}
           subtitle="v5 disclosure: this node opens these knowledge chunks."
           title="Reveals / Chunks"
         >
@@ -1624,11 +1505,16 @@ export function InspectorPanel() {
         </InspectorSection>
 
         <InspectorSection
-          path={draft.xml_paths.delivery_style}
+          path={draft.paths.delivery_style}
           subtitle="Presentation fields. Facts still belong in chunks."
           title="Delivery / Progress"
         >
-          {deliveryFields.length > 0 && <XmlFields canDelete={false} fields={deliveryFields} />}
+          <EditableText
+            multiline
+            label="delivery_style"
+            value={draft.delivery_style}
+            onChange={(v) => update("delivery_style", v)}
+          />
           <ProgressHintsEditor
             hints={draft.progress_hints}
             importance={draft.progress_hint_importance}
@@ -1639,90 +1525,8 @@ export function InspectorPanel() {
           />
         </InspectorSection>
 
-        {showLegacyState && (
-          <InspectorSection
-            path={draft.xml_paths.state_change}
-            subtitle="Compatibility fields. v5 should prefer knowledge_chunks + reveals."
-            title="Legacy State Change"
-            onDelete={(path) => removeXmlPath(path)}
-          >
-            <EditableText
-              multiline
-              label={xmlTagLabel(draft.xml_paths.must_concede, "allowed_disclosure")}
-              path={draft.xml_paths.must_concede}
-              value={draft.must_concede}
-              onChange={(v) => update("must_concede", v)}
-              onDelete={() =>
-                removeXmlPath(draft.xml_paths.must_concede, () => update("must_concede", ""))
-              }
-            />
-            <EditableText
-              multiline
-              label={xmlTagLabel(draft.xml_paths.can_still_deny, "still_hidden")}
-              path={draft.xml_paths.can_still_deny}
-              value={draft.can_still_deny}
-              onChange={(v) => update("can_still_deny", v)}
-              onDelete={() =>
-                removeXmlPath(draft.xml_paths.can_still_deny, () =>
-                  update("can_still_deny", ""),
-                )
-              }
-            />
-            <EditableText
-              multiline
-              label={xmlTagLabel(draft.xml_paths.cannot_say, "forbidden_disclosure")}
-              path={draft.xml_paths.cannot_say}
-              value={draft.forbidden.join("\n")}
-              onChange={(v) =>
-                update(
-                  "forbidden",
-                  v
-                    .split("\n")
-                    .map((s) => s.trim())
-                    .filter(Boolean),
-                )
-              }
-              onDelete={() =>
-                removeXmlPath(draft.xml_paths.cannot_say, () => update("forbidden", []))
-              }
-            />
-          </InspectorSection>
-        )}
-
-        {showLegacyResponse && (
-          <InspectorSection
-            path={draft.xml_paths.response_guidance}
-            subtitle="Compatibility fields. v5 should prefer delivery_style and STAGE chunks."
-            title="Legacy Response Guidance"
-            onDelete={(path) => removeXmlPath(path)}
-          >
-            <EditableText
-              multiline
-              label="defense_direction"
-              path={draft.xml_paths.defense_direction}
-              value={draft.defense_direction}
-              onChange={(v) => update("defense_direction", v)}
-              onDelete={() =>
-                removeXmlPath(draft.xml_paths.defense_direction, () =>
-                  update("defense_direction", ""),
-                )
-              }
-            />
-            <EditableText
-              multiline
-              label="tone"
-              path={draft.xml_paths.tone}
-              value={draft.tone}
-              onChange={(v) => update("tone", v)}
-              onDelete={() =>
-                removeXmlPath(draft.xml_paths.tone, () => update("tone", ""))
-              }
-            />
-          </InspectorSection>
-        )}
-
         <InspectorSection
-          path={draft.xml_paths.game_update}
+          path={draft.paths.game_update}
           subtitle="Evidence unlocked when this node opens."
           title="Unlocked Evidence"
         >
@@ -1739,44 +1543,7 @@ export function InspectorPanel() {
               onRemove={(id) => deleteGameUpdateItem("open-evidence", draft.id, id)}
             />
           </div>
-
-          <div className="overflow-hidden rounded-md border border-white/10 bg-black/20">
-            <button
-              aria-expanded={rawGameUpdateOpen}
-              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left"
-              onClick={() => setRawGameUpdateOpen((c) => !c)}
-              type="button"
-            >
-              <span className="font-mono text-xs font-semibold text-zinc-400">
-                raw game_update XML
-              </span>
-              <span className="ide-button px-2.5 py-1 text-xs">
-                {rawGameUpdateOpen ? "Hide" : "Show"}
-              </span>
-            </button>
-            {rawGameUpdateOpen && (
-              <div className="border-t border-white/10 p-3">
-                <EditableText
-                  code
-                  multiline
-                  label="raw game_update XML"
-                  path={draft.xml_paths.game_update}
-                  value={draft.game_update_xml}
-                  onChange={(v) => update("game_update_xml", v)}
-                />
-              </div>
-            )}
-          </div>
         </InspectorSection>
-
-        {editableFields.length > 0 && (
-          <InspectorSection
-            subtitle="Complete fallback editor for every editable XML field under this node."
-            title="All Node XML Fields"
-          >
-            <XmlFields fields={editableFields} />
-          </InspectorSection>
-        )}
       </div>
     </aside>
   );
@@ -1895,7 +1662,7 @@ function ProgressHintsEditor({
           {hints.map((hint, i) => (
             <div
               className="grid gap-2 rounded-md border border-white/10 bg-black/20 p-3"
-              key={`${hint.xml_paths.hint ?? "new"}:${i}`}
+              key={`${hint.paths.hint ?? "new"}:${i}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <label className="flex min-w-0 items-center gap-2 text-xs text-zinc-500">
@@ -2205,7 +1972,7 @@ function RevealChunkCard({
       {chunk.exists && (
         <ChunkValueEditor
           label={isStage ? "stage behavior" : isFact ? "fact text" : "chunk text"}
-          path={chunk.xml_paths.text}
+          path={chunk.paths.text}
           value={chunk.text}
           onSave={(v) => onPatchChunk({ text: v })}
         />
@@ -2234,71 +2001,6 @@ function ChunkValueEditor({
     <Field label={label} path={path}>
       <textarea
         className="input min-h-24 resize-y leading-6"
-        value={draft}
-        onBlur={save}
-        onChange={(e) => setDraft(e.target.value)}
-      />
-      {dirty && (
-        <p className="text-xs text-zinc-500">
-          {status === "saving"
-            ? "Saving..."
-            : status === "error"
-              ? "Save failed"
-              : "Unsaved"}
-        </p>
-      )}
-    </Field>
-  );
-}
-
-function XmlFields({
-  canDelete = true,
-  fields,
-}: {
-  canDelete?: boolean;
-  fields: XmlField[];
-}) {
-  const saveXmlField = useGraphStore((s) => s.saveXmlField);
-  const deleteXmlField = useGraphStore((s) => s.deleteXmlField);
-  return (
-    <div className="grid gap-3">
-      {fields.map((field) => (
-        <GenericXmlField
-          field={field}
-          key={field.path}
-          onDelete={canDelete ? deleteXmlField : undefined}
-          onPatch={saveXmlField}
-        />
-      ))}
-    </div>
-  );
-}
-
-function GenericXmlField({
-  field,
-  onDelete,
-  onPatch,
-}: {
-  field: XmlField;
-  onDelete?: (path: string) => Promise<void>;
-  onPatch: (path: string, value: string) => Promise<void>;
-}) {
-  const { dirty, draft, save, setDraft, status } = useSaveableDraft({
-    canSave: () => Boolean(field.path),
-    onSave: (v) => onPatch(field.path, v),
-    resetKey: `${field.path}:${field.value}`,
-    value: field.value,
-  });
-  const remove = async () => {
-    if (!onDelete || !field.path) return;
-    if (!window.confirm(`Delete ${field.label}?`)) return;
-    await onDelete(field.path);
-  };
-  return (
-    <Field label={field.label} path={field.path} onDelete={onDelete ? remove : undefined}>
-      <textarea
-        className="input min-h-20 resize-y leading-6 disabled:cursor-not-allowed disabled:text-zinc-600"
-        disabled={!field.path}
         value={draft}
         onBlur={save}
         onChange={(e) => setDraft(e.target.value)}
@@ -2349,22 +2051,6 @@ function Field({
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function isDedicatedField(path: string): boolean {
-  return [
-    /\/@id$/,
-    /\/@title$/,
-    /\/open(?:\/|\[|$)/,
-    /\/reveals(?:\/|\[|$)/,
-    /\/game_update(?:\/|\[|$)/,
-    /\/delivery_style(?:\/|\[|$)/,
-    /\/progress_hints(?:\/|\[|$)/,
-    /\/progress_hint_if_not_opened(?:\/|\[|$)/,
-    /\/state_change(?:\/|\[|$)/,
-    /\/response_guidance(?:\/|\[|$)/,
-    /\/forbidden(?:\/|\[|$)/,
-  ].some((p) => p.test(path));
-}
-
 function cleanImportance(v: string): DialogueNode["progress_hint_importance"] {
   return PROGRESS_HINT_IMPORTANCES.includes(v)
     ? (v as DialogueNode["progress_hint_importance"])
@@ -2374,15 +2060,6 @@ function cleanImportance(v: string): DialogueNode["progress_hint_importance"] {
 function posInt(v: string, fallback: number): number {
   const n = parseInt(v, 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
-function xmlTagLabel(path: string | undefined, fallback: string): string {
-  if (!path) return fallback;
-  const parts = path.split("/").filter(Boolean);
-  const last = parts[parts.length - 1];
-  if (!last) return fallback;
-  if (last.startsWith("@")) return last;
-  return last.replace(/\[\d+\]$/, "");
 }
 
 const GENERATED_CHUNK_PATTERN = /^([A-Z]{2,4})_N\d+_(FACT|STAGE)_(\d+)$/;

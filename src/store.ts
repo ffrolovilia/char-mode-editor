@@ -2,16 +2,16 @@ import { create } from "zustand";
 
 import type { CharacterGraph, DialogueEdge, DialogueNode } from "./types";
 import {
-  CharacterXmlDocument,
+  CharacterDocument,
   type KnowledgeChunkPatchInput,
   type NodePatchInput,
-} from "./xml";
+} from "./document";
 
 type GraphState = {
   fileName: string | null;
-  xmlDoc: CharacterXmlDocument | null;
+  doc: CharacterDocument | null;
   graph: CharacterGraph | null;
-  xml: string;
+  source: string;
   selectedId: string | null;
   search: string;
   graphExtrasVisible: boolean;
@@ -24,8 +24,7 @@ type GraphState = {
   setSearch: (search: string) => void;
   toggleGraphExtras: () => void;
 
-  saveXmlField: (path: string, value: string) => Promise<void>;
-  deleteXmlField: (path: string) => Promise<void>;
+  saveField: (path: string, value: string) => Promise<void>;
   saveNode: (nodeId: string, patch: Partial<DialogueNode>) => Promise<void>;
   deleteNode: (nodeId: string) => Promise<void>;
   addEdge: (source: string, target: string, condition?: string) => Promise<void>;
@@ -69,9 +68,9 @@ type GraphState = {
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   fileName: null,
-  xmlDoc: null,
+  doc: null,
   graph: null,
-  xml: "",
+  source: "",
   selectedId: null,
   search: "",
   graphExtrasVisible: true,
@@ -82,7 +81,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     return new Promise((resolve) => {
       const input = document.createElement("input");
       input.type = "file";
-      input.accept = ".xml";
+      input.accept = ".json";
       input.onchange = () => {
         const file = input.files?.[0];
         if (!file) {
@@ -93,14 +92,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         const reader = new FileReader();
         reader.onload = () => {
           try {
-            const xmlString = reader.result as string;
-            const xmlDoc = new CharacterXmlDocument(xmlString);
-            const graph = xmlDoc.toGraph();
+            const raw = reader.result as string;
+            const doc = CharacterDocument.parse(raw);
+            const graph = doc.toGraph();
             set({
               fileName: file.name,
-              xmlDoc,
+              doc,
               graph,
-              xml: xmlString,
+              source: doc.serialize(),
               selectedId: null,
               loading: false,
             });
@@ -120,10 +119,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   saveFile() {
-    const { xmlDoc, fileName } = get();
-    if (!xmlDoc || !fileName) return;
-    const xml = xmlDoc.serialize();
-    const blob = new Blob([xml], { type: "application/xml" });
+    const { doc, fileName } = get();
+    if (!doc || !fileName) return;
+    const content = doc.serialize();
+    const blob = new Blob([content], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -144,12 +143,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     set({ graphExtrasVisible: !get().graphExtrasVisible });
   },
 
-  async saveXmlField(path, value) {
-    mutate(get, set, (doc) => doc.patchXmlField(path, value));
-  },
-
-  async deleteXmlField(path) {
-    mutate(get, set, (doc) => doc.deleteXmlField(path));
+  async saveField(path, value) {
+    mutate(get, set, (doc) => doc.patchField(path, value));
   },
 
   async saveNode(nodeId, patch) {
@@ -202,9 +197,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   async updateEvidenceIndexItem(evidenceId, patch) {
     // In standalone mode, evidence_id rename only applies within this file
     if (patch.newEvidenceId && patch.newEvidenceId !== evidenceId) {
-      mutate(get, set, (doc) => {
-        replaceEvidenceIdInDoc(doc, evidenceId, patch.newEvidenceId!);
-      });
+      mutate(get, set, (doc) => doc.renameEvidenceId(evidenceId, patch.newEvidenceId!));
     }
   },
 
@@ -259,16 +252,16 @@ type StoreSet = (patch: Partial<GraphState>) => void;
 function mutate(
   get: StoreGet,
   set: StoreSet,
-  fn: (doc: CharacterXmlDocument) => void,
+  fn: (doc: CharacterDocument) => void,
   extra: Partial<GraphState> = {},
 ): void {
-  const { xmlDoc } = get();
-  if (!xmlDoc) return;
+  const { doc } = get();
+  if (!doc) return;
   try {
-    fn(xmlDoc);
-    const graph = xmlDoc.toGraph();
-    const xml = xmlDoc.serialize();
-    set({ graph, xml, error: null, ...extra });
+    fn(doc);
+    const graph = doc.toGraph();
+    const source = doc.serialize();
+    set({ graph, source, error: null, ...extra });
   } catch (err) {
     set({ error: errorMessage(err) });
   }
@@ -285,53 +278,8 @@ function nodePartialToPatch(patch: Partial<DialogueNode>): NodePatchInput {
     open_text: patch.open_text,
     required_nodes_mode: patch.required_nodes_mode,
     required_evidence_mode: patch.required_evidence_mode,
-    must_concede: patch.must_concede,
-    can_still_deny: patch.can_still_deny,
-    defense_direction: patch.defense_direction,
-    tone: patch.tone,
-    forbidden: patch.forbidden,
-    game_update_xml: patch.game_update_xml,
+    delivery_style: patch.delivery_style,
     progress_hints: patch.progress_hints,
     progress_hint_importance: patch.progress_hint_importance,
   };
-}
-
-function replaceEvidenceIdInDoc(
-  doc: CharacterXmlDocument,
-  oldId: string,
-  newId: string,
-): void {
-  const root = doc.root;
-  // Replace in evidence_map/evidence_index id attributes
-  for (const ev of Array.from(
-    root.querySelectorAll(
-      "evidence_map > evidence, evidence_index > evidence",
-    ),
-  )) {
-    if (ev.getAttribute("id") === oldId) ev.setAttribute("id", newId);
-  }
-  // Replace in node requirements
-  for (const ev of Array.from(
-    root.querySelectorAll(
-      "disclosure_graph nodes node open requires evidence evidence",
-    ),
-  )) {
-    if (ev.getAttribute("id") === oldId) ev.setAttribute("id", newId);
-  }
-  // Replace in game_update open_evidence children
-  for (const ev of Array.from(
-    root.querySelectorAll(
-      "disclosure_graph nodes node game_update open_evidence evidence",
-    ),
-  )) {
-    if (ev.getAttribute("id") === oldId) ev.setAttribute("id", newId);
-  }
-  // Replace in game_update open_evidence attribute (legacy)
-  for (const gu of Array.from(
-    root.querySelectorAll("disclosure_graph nodes node game_update"),
-  )) {
-    if (gu.getAttribute("open_evidence") === oldId) {
-      gu.setAttribute("open_evidence", newId);
-    }
-  }
 }

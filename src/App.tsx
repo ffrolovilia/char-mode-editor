@@ -107,7 +107,7 @@ function Toolbar() {
 
   return (
     <header className="ide-topbar">
-      <div className="ide-brand-mark">XML</div>
+      <div className="ide-brand-mark">JSON</div>
       {fileName && (
         <span className="truncate font-mono text-sm text-zinc-300">{fileName}</span>
       )}
@@ -134,7 +134,7 @@ function Toolbar() {
           type="button"
           onClick={() => void openFile()}
         >
-          Open XML
+          Open JSON
         </button>
         {fileName !== null && (
           <button
@@ -142,7 +142,7 @@ function Toolbar() {
             type="button"
             onClick={saveFile}
           >
-            Save XML
+            Save JSON
           </button>
         )}
       </div>
@@ -156,9 +156,9 @@ function LandingScreen() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
       <div className="grid max-w-md gap-4 text-center">
-        <h1 className="text-3xl font-semibold text-zinc-100">Character XML Editor</h1>
+        <h1 className="text-3xl font-semibold text-zinc-100">Character JSON Editor</h1>
         <p className="text-base leading-7 text-zinc-400">
-          Load a character XML file to view and edit the disclosure graph,
+          Load a character JSON file to view and edit the disclosure graph,
           knowledge chunks, and evidence catalog. Changes are applied in memory;
           download when done.
         </p>
@@ -172,10 +172,10 @@ function LandingScreen() {
           type="button"
           onClick={() => void openFile()}
         >
-          Open XML file
+          Open JSON file
         </button>
         <p className="text-xs text-zinc-600">
-          Only <code className="text-zinc-400">.xml</code> files are accepted. Nothing is
+          Only <code className="text-zinc-400">.json</code> files are accepted. Nothing is
           uploaded — the file stays in your browser.
         </p>
       </div>
