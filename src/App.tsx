@@ -1,7 +1,16 @@
-import { Component, type ErrorInfo, type PointerEvent, type ReactNode, useState } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { CharacterContextPanel, InspectorPanel } from "./editor";
 import { GraphCanvas } from "./graph";
+import { nextNodeId } from "./nodeId";
 import { useGraphStore } from "./store";
 
 const LEFT_MIN = 360;
@@ -102,11 +111,41 @@ function CharacterEditorApp() {
 }
 
 function Toolbar() {
-  const { fileName, graphExtrasVisible, toggleGraphExtras, openFile, saveFile } =
-    useGraphStore();
+  const {
+    fileName,
+    graph,
+    graphExtrasVisible,
+    toggleGraphExtras,
+    openFile,
+    openEvidenceFile,
+    saveFile,
+    addNode,
+    evidenceCatalog,
+    evidenceFileName,
+  } = useGraphStore();
+  const [createOpen, setCreateOpen] = useState(false);
+  const createWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (createWrapRef.current && !createWrapRef.current.contains(event.target as Node)) {
+        setCreateOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCreateOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [createOpen]);
 
   return (
-    <header className="ide-topbar">
+    <header className="ide-topbar relative z-50">
       <div className="ide-brand-mark">JSON</div>
       {fileName && (
         <span className="truncate font-mono text-sm text-zinc-300">{fileName}</span>
@@ -129,12 +168,46 @@ function Toolbar() {
         )}
       </div>
       <div className="ml-auto flex gap-2">
+        {fileName !== null && (
+          <div ref={createWrapRef} className="relative">
+            <button
+              aria-expanded={createOpen}
+              className="ide-button ide-button-primary"
+              disabled={!graph}
+              onClick={() => setCreateOpen((open) => !open)}
+              type="button"
+            >
+              + New node
+            </button>
+            {createOpen && graph && (
+              <CreateNodePopover
+                defaultNodeId={nextNodeId(graph.nodes.map((node) => node.id))}
+                onClose={() => setCreateOpen(false)}
+                onCreate={addNode}
+              />
+            )}
+          </div>
+        )}
         <button
           className="ide-button"
           type="button"
           onClick={() => void openFile()}
         >
           Open JSON
+        </button>
+        <button
+          className="ide-button"
+          type="button"
+          onClick={() => void openEvidenceFile()}
+          title={
+            evidenceFileName
+              ? `Loaded ${evidenceFileName} (${evidenceCatalog.length} items)`
+              : "Load a global evidence.json catalog"
+          }
+        >
+          {evidenceFileName
+            ? `Evidence: ${evidenceCatalog.length}`
+            : "Load evidence"}
         </button>
         {fileName !== null && (
           <button
@@ -150,8 +223,96 @@ function Toolbar() {
   );
 }
 
+function CreateNodePopover({
+  defaultNodeId,
+  onClose,
+  onCreate,
+}: {
+  defaultNodeId: string;
+  onClose: () => void;
+  onCreate: (nodeId: string, title?: string) => Promise<void>;
+}) {
+  const [nodeId, setNodeId] = useState(defaultNodeId);
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const nodeIdRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    nodeIdRef.current?.focus();
+    nodeIdRef.current?.select();
+  }, []);
+
+  const submit = async () => {
+    const id = nodeId.trim();
+    if (!id || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onCreate(id, title.trim() || undefined);
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="absolute right-0 top-full z-[1000] mt-2 w-80 rounded-lg border border-white/15 bg-[#0d0f13] p-4 shadow-2xl shadow-black/60">
+      <h2 className="text-sm font-semibold text-zinc-50">Create node</h2>
+      <p className="mt-1 text-xs leading-5 text-zinc-500">
+        Adds a new node to the disclosure graph.
+      </p>
+      <div className="mt-3 grid gap-3">
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-mono text-xs font-medium text-zinc-500">node_id</span>
+          <input
+            ref={nodeIdRef}
+            className="input"
+            placeholder="N5"
+            value={nodeId}
+            onChange={(event) => setNodeId(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") void submit(); }}
+          />
+        </label>
+        <label className="grid gap-1.5 text-sm">
+          <span className="font-mono text-xs font-medium text-zinc-500">title (optional)</span>
+          <input
+            className="input"
+            placeholder="Node title"
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => { if (event.key === "Enter") void submit(); }}
+          />
+        </label>
+        {error && (
+          <p className="rounded-md border border-red-400/25 bg-red-500/10 px-3 py-2 text-xs text-red-100">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <button className="ide-button" onClick={onClose} type="button">
+          Cancel
+        </button>
+        <button
+          className="ide-button ide-button-primary disabled:opacity-50"
+          disabled={!nodeId.trim() || busy}
+          onClick={submit}
+          type="button"
+        >
+          {busy ? "Creating…" : "Create node"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LandingScreen() {
   const openFile = useGraphStore((s) => s.openFile);
+  const openEvidenceFile = useGraphStore((s) => s.openEvidenceFile);
+  const evidenceCatalog = useGraphStore((s) => s.evidenceCatalog);
+  const evidenceFileName = useGraphStore((s) => s.evidenceFileName);
   const error = useGraphStore((s) => s.error);
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-6 p-8">
@@ -174,9 +335,20 @@ function LandingScreen() {
         >
           Open JSON file
         </button>
+        <button
+          className="ide-button mx-auto px-5 py-2.5 text-sm"
+          type="button"
+          onClick={() => void openEvidenceFile()}
+        >
+          {evidenceFileName
+            ? `Evidence loaded: ${evidenceFileName} (${evidenceCatalog.length})`
+            : "Load evidence catalog (optional)"}
+        </button>
         <p className="text-xs text-zinc-600">
           Only <code className="text-zinc-400">.json</code> files are accepted. Nothing is
-          uploaded — the file stays in your browser.
+          uploaded — the file stays in your browser. Load{" "}
+          <code className="text-zinc-400">evidence.json</code> to resolve evidence titles
+          and descriptions.
         </p>
       </div>
     </div>

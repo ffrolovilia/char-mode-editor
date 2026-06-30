@@ -1,6 +1,11 @@
 import { create } from "zustand";
 
-import type { CharacterGraph, DialogueEdge, DialogueNode } from "./types";
+import type {
+  CharacterGraph,
+  DialogueEdge,
+  DialogueNode,
+  EvidenceCatalogItem,
+} from "./types";
 import {
   CharacterDocument,
   type KnowledgeChunkPatchInput,
@@ -17,8 +22,11 @@ type GraphState = {
   graphExtrasVisible: boolean;
   loading: boolean;
   error: string | null;
+  evidenceCatalog: EvidenceCatalogItem[];
+  evidenceFileName: string | null;
 
   openFile: () => Promise<void>;
+  openEvidenceFile: () => Promise<void>;
   saveFile: () => void;
   select: (id: string | null) => void;
   setSearch: (search: string) => void;
@@ -26,6 +34,7 @@ type GraphState = {
 
   saveField: (path: string, value: string) => Promise<void>;
   saveNode: (nodeId: string, patch: Partial<DialogueNode>) => Promise<void>;
+  addNode: (nodeId: string, title?: string) => Promise<void>;
   deleteNode: (nodeId: string) => Promise<void>;
   addEdge: (source: string, target: string, condition?: string) => Promise<void>;
   updateEdge: (
@@ -76,6 +85,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   graphExtrasVisible: true,
   loading: false,
   error: null,
+  evidenceCatalog: [],
+  evidenceFileName: null,
 
   async openFile() {
     return new Promise((resolve) => {
@@ -94,6 +105,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
           try {
             const raw = reader.result as string;
             const doc = CharacterDocument.parse(raw);
+            doc.setEvidenceCatalog(get().evidenceCatalog);
             const graph = doc.toGraph();
             set({
               fileName: file.name,
@@ -110,6 +122,54 @@ export const useGraphStore = create<GraphState>((set, get) => ({
         };
         reader.onerror = () => {
           set({ error: "Failed to read file", loading: false });
+          resolve();
+        };
+        reader.readAsText(file, "utf-8");
+      };
+      input.click();
+    });
+  },
+
+  async openEvidenceFile() {
+    return new Promise((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = ".json";
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) {
+          resolve();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const raw = reader.result as string;
+            const catalog = CharacterDocument.parseEvidenceCatalog(raw);
+            const { doc } = get();
+            if (doc) {
+              doc.setEvidenceCatalog(catalog);
+              set({
+                evidenceCatalog: catalog,
+                evidenceFileName: file.name,
+                graph: doc.toGraph(),
+                source: doc.serialize(),
+                error: null,
+              });
+            } else {
+              set({
+                evidenceCatalog: catalog,
+                evidenceFileName: file.name,
+                error: null,
+              });
+            }
+          } catch (err) {
+            set({ error: errorMessage(err) });
+          }
+          resolve();
+        };
+        reader.onerror = () => {
+          set({ error: "Failed to read evidence file" });
           resolve();
         };
         reader.readAsText(file, "utf-8");
@@ -151,6 +211,10 @@ export const useGraphStore = create<GraphState>((set, get) => ({
     mutate(get, set, (doc) =>
       doc.patchNode(nodeId, nodePartialToPatch(patch)),
     );
+  },
+
+  async addNode(nodeId, title) {
+    mutate(get, set, (doc) => doc.createNode(nodeId, title), { selectedId: nodeId });
   },
 
   async deleteNode(nodeId) {

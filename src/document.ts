@@ -2,6 +2,7 @@ import type {
   CharacterGraph,
   DialogueEdge,
   DialogueNode,
+  EvidenceCatalogItem,
   FieldEntry,
   FieldGroup,
   FieldSection,
@@ -106,6 +107,8 @@ function cleanImportance(value: string): string {
 
 export class CharacterDocument {
   private data: Json;
+  private evidenceCatalog: EvidenceCatalogItem[] = [];
+  private evidenceById: Map<string, EvidenceCatalogItem> = new Map();
 
   constructor(data: Json) {
     if (typeof data !== "object" || data === null || Array.isArray(data))
@@ -115,6 +118,36 @@ export class CharacterDocument {
 
   static parse(jsonString: string): CharacterDocument {
     return new CharacterDocument(JSON.parse(jsonString));
+  }
+
+  // Parse a global evidence catalog file (`{ "evidence": [...] }`). Mirrors the
+  // backend's `_evidence_registry_for_path`: title falls back to id, status is
+  // derived from available_from_start.
+  static parseEvidenceCatalog(jsonString: string): EvidenceCatalogItem[] {
+    const parsed = JSON.parse(jsonString);
+    const raw = isObj(parsed) ? parsed.evidence : undefined;
+    if (!Array.isArray(raw))
+      throw new Error('Evidence file must have an "evidence" array');
+    const items: EvidenceCatalogItem[] = [];
+    for (const entry of raw) {
+      if (!isObj(entry)) continue;
+      const id = strVal(entry.id);
+      if (!id) continue;
+      const availableFromStart = Boolean(entry.available_from_start);
+      items.push({
+        id,
+        title: strVal(entry.title) || id,
+        description: strVal(entry.description),
+        status: availableFromStart ? "initial" : "locked",
+        available_from_start: availableFromStart,
+      });
+    }
+    return items;
+  }
+
+  setEvidenceCatalog(items: EvidenceCatalogItem[]): void {
+    this.evidenceCatalog = items;
+    this.evidenceById = new Map(items.map((item) => [item.id, item]));
   }
 
   toJson(): Json {
@@ -150,7 +183,7 @@ export class CharacterDocument {
       evidence: strList(this.data.evidence_index).map((id) =>
         this.projectEvidence(id, nodeDicts),
       ),
-      evidence_catalog: [],
+      evidence_catalog: this.evidenceCatalog,
       updates: [],
     };
 
@@ -293,13 +326,14 @@ export class CharacterDocument {
       const ids = isObj(reqEvidence) ? strList(reqEvidence.ids) : [];
       if (nodeId && ids.includes(evidenceId)) targets.push(nodeId);
     }
+    const definition = this.evidenceById.get(evidenceId);
     return {
       id: evidenceId,
-      name: "",
-      status: "",
+      name: definition?.title ?? "",
+      status: definition?.status ?? "",
       power: 1,
       targets,
-      meaning: "",
+      meaning: definition?.description ?? "",
       attrs: {},
       paths: { evidence: `evidence_index/${evidenceId}`, id: `evidence_index/${evidenceId}` },
     };
@@ -517,6 +551,17 @@ export class CharacterDocument {
   }
 
   // ── knowledge chunks ──────────────────────────────────────────────────────
+
+  createNode(nodeId: string, title?: string): void {
+    const id = nodeId.trim();
+    if (!id) throw new Error("Node id is required");
+    if (this.nodes().some((n) => strVal(n.id) === id))
+      throw new Error(`Node already exists: ${id}`);
+    const graph = this.disclosureGraph();
+    const newNode: Json = { id };
+    if (title?.trim()) newNode.title = title.trim();
+    graph.nodes.push(newNode);
+  }
 
   createKnowledgeChunk(chunkId: string, type: string, text: string, activeUntil?: string): void {
     const id = chunkId.trim();
